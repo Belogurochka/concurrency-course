@@ -1,11 +1,10 @@
 package ru.home.concurrency;
 
 
-import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -20,7 +19,7 @@ public class PriceMin {
 		Double min = priceAggregator.getMinPrice(itemId);
 		long end = System.currentTimeMillis();
 
-		System.out.println(min != null ? String.format("Min price = %f", min) : "No prices were fetched");
+		System.out.println(Double.isNaN(min) ? "No prices were fetched" : String.format("Min price = %f", min));
 		System.out.println((end - start) < 3000); // should be true
 	}
 
@@ -49,28 +48,15 @@ public class PriceMin {
 					.map(shopId -> CompletableFuture.supplyAsync(() -> priceRetriever.getPrice(itemId, shopId)))
 					.collect(Collectors.toList());
 
-			try {
-				return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
-						.completeOnTimeout(null, 2900, TimeUnit.MILLISECONDS)
-						.thenApply(t -> futures.stream()
-								.filter(CompletableFuture::isDone)
-								.map(this::getPrice)
-								.min(Comparator.nullsLast(Comparator.naturalOrder()))
-								.orElse(null))
-						.get();
-			} catch (InterruptedException | ExecutionException ex) {
-				System.out.printf("Exception while getting min price = %1s%n", ex.getMessage());
-			}
-			return null;
-		}
-
-		private Double getPrice(CompletableFuture<Double> f) {
-			try {
-				return f.get();
-			} catch (InterruptedException | ExecutionException ex) {
-				System.out.printf("Exception while getting price = %1s%n", ex.getMessage());
-			}
-			return null;
+			return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+					.completeOnTimeout(null, 2900, TimeUnit.MILLISECONDS)
+					.thenApply(t -> futures.stream()
+							.filter(CompletableFuture::isDone)
+							.mapToDouble(CompletableFuture::join)
+							.filter(Objects::nonNull)
+							.min()
+							.orElse(Double.NaN))
+					.join();
 		}
 	}
 }
