@@ -1,4 +1,4 @@
-package ru.home.concurrency;
+package ru.home.concurrency.prices;
 
 
 import java.util.List;
