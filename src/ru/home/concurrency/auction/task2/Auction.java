@@ -1,5 +1,7 @@
 package ru.home.concurrency.auction.task2;
 
+import ru.home.concurrency.auction.task1.AuctionOptimistic;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
@@ -63,35 +65,40 @@ public class Auction {
 	}
 
 	private boolean tryProposeBid(Bid bid) {
-		try {
-			if (lock.tryLock(1, TimeUnit.SECONDS)) {
-				try {
-					if (latestBid.get() != null) {
-						if (bid.price > latestBid.get().price) {
-							Bid oldLatestBid = latestBid.getAndSet(bid);
-							System.out.printf("%1s Bid with id = %2d was proposed, last bid id = %3d, bid price = %4d%n",
-									dateFormatter.format(LocalDateTime.now()), bid.getId(), oldLatestBid.getId(), bid.getPrice());
-							CompletableFuture.runAsync(() -> notifier.sendOutdatedMessage(oldLatestBid), executorService);
-							return true;
-						}
-					} else {
-						latestBid.getAndSet(bid);
-						System.out.printf("%1s Bid with id = %2d was proposed first, price = %3d%n",
-								dateFormatter.format(LocalDateTime.now()), bid.getId(), bid.getPrice());
-						return true;
-					}
-				} finally {
-					lock.unlock();
+		Bid expected, newValue;
+
+		do {
+			expected = latestBid.get();
+			newValue = expected;
+
+			if (expected != null) {
+				if (bid.price > expected.price) {
+					newValue = bid;
 				}
-				System.out.printf("%1s Bid with id = %2d was not proposed, last bid id = %3d, bid price = %4d%n",
-						dateFormatter.format(LocalDateTime.now()), bid.getId(), latestBid.get().getId(), bid.getPrice());
 			} else {
-				System.out.printf("Can't getting lock for bid with id=%1d%n", bid.id);
+				newValue = bid;
 			}
-		} catch (InterruptedException ex) {
-			System.out.printf("Exception while trying getting lock=%1s%n", ex.getMessage());
+		} while (!isAuctionStopped.get() && !latestBid.compareAndSet(expected, newValue));
+
+		if (!isAuctionStopped.get() && newValue.getId().equals(bid.getId())) {
+			if (expected == null) {
+				System.out.printf("%1s Bid with id = %2d was proposed first, price = %3d%n",
+						dateFormatter.format(LocalDateTime.now()), bid.getId(), bid.getPrice());
+			} else {
+				sendMessage(expected);
+				System.out.printf("%1s Bid with id = %2d was proposed, last bid id = %3d, bid price = %4d%n",
+						dateFormatter.format(LocalDateTime.now()), bid.getId(), expected.getId(), bid.getPrice());
+			}
+			return true;
+		} else {
+			System.out.printf("%1s Bid with id = %2d was not proposed, last bid id = %3d, bid price = %4d%n",
+					dateFormatter.format(LocalDateTime.now()), bid.getId(), expected.getId(), bid.getPrice());
+			return false;
 		}
-		return false;
+	}
+
+	private void sendMessage(Bid oldLatestBid) {
+		CompletableFuture.runAsync(() -> notifier.sendOutdatedMessage(oldLatestBid), executorService);
 	}
 
 	public Bid getLatestBid() {
