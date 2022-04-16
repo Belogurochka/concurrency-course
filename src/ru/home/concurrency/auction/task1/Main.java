@@ -9,20 +9,20 @@ import java.util.stream.IntStream;
 public class Main {
 
 	public static void main(String[] args) {
-		Auction auction = new Auction();
+		AuctionOptimistic auction = new AuctionOptimistic();
 
 		List<CompletableFuture<Boolean>> futures = IntStream.rangeClosed(1, 10)
 				.boxed()
 				.map(i -> CompletableFuture.supplyAsync(() -> {
 					long price = ThreadLocalRandom.current().nextLong(1, 10000);
-					Auction.Bid bid = new Auction.Bid(i.longValue(), price);
+					AuctionOptimistic.Bid bid = new AuctionOptimistic.Bid(i.longValue(), price);
 					return auction.propose(bid);
 				}))
 				.collect(Collectors.toList());
 
 		CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
 
-		Auction.Bid latestBid = auction.getLatestBid();
+		AuctionOptimistic.Bid latestBid = auction.getLatestBid();
 		System.out.printf("Latest bid = %1d%n", latestBid.getId());
 	}
 }
