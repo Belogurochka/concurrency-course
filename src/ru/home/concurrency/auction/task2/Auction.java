@@ -1,13 +1,10 @@
 package ru.home.concurrency.auction.task2;
 
-import ru.home.concurrency.auction.task1.AuctionOptimistic;
-
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -56,15 +53,6 @@ public class Auction {
 	private static final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss.SSSS");
 
 	public boolean propose(Bid bid) {
-		if (!isAuctionStopped.get()) {
-			return tryProposeBid(bid);
-		} else {
-			System.out.printf("%1s Auction was stopped%n", dateFormatter.format(LocalDateTime.now()));
-		}
-		return false;
-	}
-
-	private boolean tryProposeBid(Bid bid) {
 		Bid expected, newValue;
 
 		do {
@@ -80,7 +68,10 @@ public class Auction {
 			}
 		} while (!isAuctionStopped.get() && !latestBid.compareAndSet(expected, newValue));
 
-		if (!isAuctionStopped.get() && newValue.getId().equals(bid.getId())) {
+		if (isAuctionStopped.get()) {
+			System.out.printf("%1s Auction was stopped%n", dateFormatter.format(LocalDateTime.now()));
+			return false;
+		} else if (newValue.getId().equals(bid.getId())) {
 			if (expected == null) {
 				System.out.printf("%1s Bid with id = %2d was proposed first, price = %3d%n",
 						dateFormatter.format(LocalDateTime.now()), bid.getId(), bid.getPrice());

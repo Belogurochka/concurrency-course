@@ -43,7 +43,7 @@ public class AuctionOptimistic {
 
 	private final Notifier notifier = new Notifier();
 
-	private volatile AtomicReference<Bid> latestBid = new AtomicReference<>();
+	private final AtomicReference<Bid> latestBid = new AtomicReference<>();
 
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 
