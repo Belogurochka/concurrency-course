@@ -6,8 +6,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicStampedReference;
 
 public class Auction {
 	public static class Bid {
@@ -43,20 +44,24 @@ public class Auction {
 
 	private final Notifier notifier = new Notifier();
 
-	private final AtomicReference<Bid> latestBid = new AtomicReference<>();
+	private final AtomicInteger stamp = new AtomicInteger(0);
+	private final AtomicStampedReference<Bid> latestBid = new AtomicStampedReference<>(null, stamp.get());
 	private final AtomicBoolean isAuctionStopped = new AtomicBoolean(false);
 
-	private final ExecutorService executorService = Executors.newCachedThreadPool();
+	private volatile int finalStamp;
+	private AtomicReference<Bid> prevBid = new AtomicReference<>();
 
-	private final ReentrantLock lock = new ReentrantLock();
+	private final ExecutorService executorService = Executors.newCachedThreadPool();
 
 	private static final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss.SSSS");
 
 	public boolean propose(Bid bid) {
 		Bid expected, newValue;
+		int expectedStamp;
 
 		do {
-			expected = latestBid.get();
+			expectedStamp = latestBid.getStamp();
+			expected = latestBid.get(new int[1]);
 			newValue = expected;
 
 			if (expected != null) {
@@ -66,7 +71,8 @@ public class Auction {
 			} else {
 				newValue = bid;
 			}
-		} while (!isAuctionStopped.get() && !latestBid.compareAndSet(expected, newValue));
+			prevBid.set(expected);
+		} while (!isAuctionStopped.get() && !latestBid.compareAndSet(expected, newValue, expectedStamp, stamp.incrementAndGet()));
 
 		if (isAuctionStopped.get()) {
 			System.out.printf("%1s Auction was stopped%n", dateFormatter.format(LocalDateTime.now()));
@@ -93,11 +99,20 @@ public class Auction {
 	}
 
 	public Bid getLatestBid() {
-		return latestBid.get();
+		if (isAuctionStopped.get()) {
+			if (latestBid.getStamp()>finalStamp) {
+				return prevBid.get();
+			} else {
+				return latestBid.get(new int[1]);
+			}
+		} else {
+			return latestBid.get(new int[1]);
+		}
 	}
 
 	public void stopAuction() {
 		isAuctionStopped.set(true);
+		finalStamp = stamp.get();
 	}
 
 	public boolean isAuctionStopped() {
