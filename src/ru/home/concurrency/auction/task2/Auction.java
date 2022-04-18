@@ -5,10 +5,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicStampedReference;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Auction {
 	public static class Bid {
@@ -47,6 +49,7 @@ public class Auction {
 	private final AtomicInteger stamp = new AtomicInteger(0);
 	private final AtomicStampedReference<Bid> latestBid = new AtomicStampedReference<>(null, stamp.get());
 	private final AtomicBoolean isAuctionStopped = new AtomicBoolean(false);
+	private final ReentrantLock lock = new ReentrantLock();
 
 	private volatile int finalStamp;
 	private AtomicReference<Bid> prevBid = new AtomicReference<>();
@@ -100,7 +103,7 @@ public class Auction {
 
 	public Bid getLatestBid() {
 		if (isAuctionStopped.get()) {
-			if (latestBid.getStamp()>finalStamp) {
+			if (latestBid.getStamp() > finalStamp) {
 				return prevBid.get();
 			} else {
 				return latestBid.get(new int[1]);
@@ -111,8 +114,20 @@ public class Auction {
 	}
 
 	public void stopAuction() {
-		isAuctionStopped.set(true);
-		finalStamp = stamp.get();
+		try {
+			if (lock.tryLock(1, TimeUnit.SECONDS)) {
+				try {
+					isAuctionStopped.set(true);
+					finalStamp = stamp.get();
+				} finally {
+					lock.unlock();
+				}
+			} else {
+				System.out.printf("Can't getting lock for stop auction%n");
+			}
+		} catch (InterruptedException ex) {
+			System.out.printf("Exception while trying stop auction=%1s%n", ex.getMessage());
+		}
 	}
 
 	public boolean isAuctionStopped() {
