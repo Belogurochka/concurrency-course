@@ -14,12 +14,12 @@ public class OrderService {
 		return currentOrders.computeIfAbsent(nextId.getAndIncrement(), newId -> new Order(newId, items)).getId();
 	}
 
-	public void updatePaymentInfo(long cartId, PaymentInfo paymentInfo) {
+	public synchronized void updatePaymentInfo(long cartId, PaymentInfo paymentInfo) {
 		Order order = currentOrders.get(cartId).withPaymentInfo(paymentInfo);
 		checkOrderStatus(order, cartId);
 	}
 
-	public void setPacked(long cartId) {
+	public synchronized void setPacked(long cartId) {
 		Order order = currentOrders.get(cartId).withPacked(true);
 		checkOrderStatus(order, cartId);
 	}
