@@ -1,26 +1,25 @@
 package ru.home.concurrency.immutable.order;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class OrderService {
-	private Map<Long, Order> currentOrders = new HashMap<>();
+	private Map<Long, Order> currentOrders = new ConcurrentHashMap<>();
 	private AtomicLong nextId = new AtomicLong(0);
 
 	public long createOrder(List<Item> items) {
 		return currentOrders.computeIfAbsent(nextId.getAndIncrement(), newId -> new Order(newId, items)).getId();
 	}
 
-	public synchronized void updatePaymentInfo(long cartId, PaymentInfo paymentInfo) {
-		Order order = currentOrders.get(cartId).withPaymentInfo(paymentInfo);
+	public void updatePaymentInfo(long cartId, PaymentInfo paymentInfo) {
+		Order order = currentOrders.compute(cartId, (id, mapOrder) -> mapOrder.withPaymentInfo(paymentInfo));
 		checkOrderStatus(order, cartId);
 	}
 
-	public synchronized void setPacked(long cartId) {
-		Order order = currentOrders.get(cartId).withPacked(true);
+	public void setPacked(long cartId) {
+		Order order = currentOrders.compute(cartId, (id, mapOrder) -> mapOrder.withPacked(true));
 		checkOrderStatus(order, cartId);
 	}
 
