@@ -27,8 +27,6 @@ public class OrderService {
 		if (order.checkStatus()) {
 			deliver(order);
 			currentOrders.put(id, order.withStatus(Status.DELIVERED));
-		} else {
-			currentOrders.put(id, order);
 		}
 	}
 
