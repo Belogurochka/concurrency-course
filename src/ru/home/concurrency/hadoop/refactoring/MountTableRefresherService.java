@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -84,11 +83,10 @@ public class MountTableRefresherService {
 		//ForkJoinPool forkJoinPool = ForkJoinPool.commonPool();
 		//	forkJoinPool.invoke(refreshTask);
 
-		List<CompletableFuture<Void>> futures = List.of(CompletableFuture.runAsync(refreshTask::compute));
-		CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+		CompletableFuture.runAsync(refreshTask::compute)
 				.completeOnTimeout(null, cacheUpdateTimeout, TimeUnit.MILLISECONDS)
 				.thenAccept(t -> {
-					if (!futures.stream().allMatch(CompletableFuture::isDone)) {
+					if (!refreshTask.isDone()) {
 						System.out.println("Not all router admins updated their cache");
 					}
 				})
