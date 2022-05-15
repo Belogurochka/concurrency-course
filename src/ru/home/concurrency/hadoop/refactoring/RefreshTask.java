@@ -31,8 +31,8 @@ public class RefreshTask extends CountedCompleter {
 			int middle = start + (end - start) / 2;
 			addToPendingCount(2);
 
-			RefreshTask subTask1 = new RefreshTask(this, refreshList, start, middle, successCount, failureCount,routerClientsCache);
-			RefreshTask subTask2 = new RefreshTask(this, refreshList, middle, end, successCount, failureCount,routerClientsCache);
+			RefreshTask subTask1 = new RefreshTask(this, refreshList, start, middle, successCount, failureCount, routerClientsCache);
+			RefreshTask subTask2 = new RefreshTask(this, refreshList, middle, end, successCount, failureCount, routerClientsCache);
 
 			invokeAll(subTask1, subTask2);
 		}
@@ -50,6 +50,7 @@ public class RefreshTask extends CountedCompleter {
 				failureCount.getAndIncrement();
 				removeFromCache(task.getAdminAddress());
 			}
+			System.out.printf("Refresh %d%n", i);
 		}
 	}
 

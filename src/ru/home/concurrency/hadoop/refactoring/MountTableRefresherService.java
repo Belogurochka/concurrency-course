@@ -2,6 +2,7 @@ package ru.home.concurrency.hadoop.refactoring;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
@@ -80,13 +81,23 @@ public class MountTableRefresherService {
 		AtomicInteger failureCount = new AtomicInteger(0);
 
 		RefreshTask refreshTask = new RefreshTask(null, refreshTasks, 0, refreshTasks.size(), successCount, failureCount, routerClientsCache);
-		ForkJoinPool forkJoinPool = ForkJoinPool.commonPool();
-		forkJoinPool.invoke(refreshTask);
+		//ForkJoinPool forkJoinPool = ForkJoinPool.commonPool();
+		//	forkJoinPool.invoke(refreshTask);
 
-		boolean allReqCompleted = forkJoinPool.awaitQuiescence(cacheUpdateTimeout, TimeUnit.MILLISECONDS);
-		if (!allReqCompleted) {
-			System.out.println("Not all router admins updated their cache");
-		}
+		List<CompletableFuture<Void>> futures = List.of(CompletableFuture.runAsync(refreshTask::compute));
+		CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+				.completeOnTimeout(null, cacheUpdateTimeout, TimeUnit.MILLISECONDS)
+				.thenAccept(t -> {
+					if (!futures.stream().allMatch(CompletableFuture::isDone)) {
+						System.out.println("Not all router admins updated their cache");
+					}
+				})
+				.join();
+
+		//boolean allReqCompleted = forkJoinPool.awaitQuiescence(cacheUpdateTimeout, TimeUnit.MILLISECONDS);
+		/*if (!allReqCompleted) {
+			System.err.println("Not all router admins updated their cache");
+		}*/
 		System.out.printf("Mount table entries cache refresh successCount=%d,failureCount=%d%n", successCount.get(), failureCount.get());
 	}
 

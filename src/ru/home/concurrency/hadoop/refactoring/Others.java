@@ -43,6 +43,9 @@ public class Others {
 				new RouterState("localhost:8095"),
 				new RouterState("123.67.234.67"),
 				new RouterState("localhost:8096"),
+				new RouterState("localhost:8097"),
+				new RouterState("localhost:8098"),
+				new RouterState("localhost:8095"),
 				new RouterState("123.67.234.68")
 		);
 
