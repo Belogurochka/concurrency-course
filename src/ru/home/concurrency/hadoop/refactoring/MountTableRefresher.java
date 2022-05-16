@@ -26,8 +26,8 @@ public class MountTableRefresher {
 	 * cache locally it need not to make RPC call. But R1 will make RPC calls to
 	 * update cache on R2 and R3.
 	 */
-	public void refresh() {
-		success = manager.refresh();
+	public boolean refresh() {
+		return manager.refresh();
 	}
 
 	/**

@@ -79,10 +79,7 @@ public class MountTableRefresherService {
 		AtomicInteger successCount = new AtomicInteger(0);
 		AtomicInteger failureCount = new AtomicInteger(0);
 
-		RefreshTask refreshTask = new RefreshTask(null, refreshTasks, 0, refreshTasks.size(), successCount, failureCount, routerClientsCache);
-		//ForkJoinPool forkJoinPool = ForkJoinPool.commonPool();
-		//	forkJoinPool.invoke(refreshTask);
-
+		/*RefreshTask refreshTask = new RefreshTask(null, refreshTasks, 0, refreshTasks.size(), successCount, failureCount, routerClientsCache);
 		CompletableFuture.runAsync(refreshTask::compute)
 				.completeOnTimeout(null, cacheUpdateTimeout, TimeUnit.MILLISECONDS)
 				.thenAccept(t -> {
@@ -90,12 +87,26 @@ public class MountTableRefresherService {
 						System.out.println("Not all router admins updated their cache");
 					}
 				})
-				.join();
+				.join();*/
 
-		//boolean allReqCompleted = forkJoinPool.awaitQuiescence(cacheUpdateTimeout, TimeUnit.MILLISECONDS);
-		/*if (!allReqCompleted) {
-			System.err.println("Not all router admins updated their cache");
-		}*/
+		List<CompletableFuture<Void>> tasks = refreshTasks.stream().map(task -> CompletableFuture.supplyAsync(task::refresh)
+				.completeOnTimeout(false, cacheUpdateTimeout, TimeUnit.MILLISECONDS)
+				.thenAccept(t -> {
+					if (t) {
+						successCount.getAndIncrement();
+					} else {
+						failureCount.getAndIncrement();
+					}
+				})).collect(Collectors.toList());
+
+		CompletableFuture.allOf(tasks.toArray(CompletableFuture[]::new))
+				.completeOnTimeout(null, cacheUpdateTimeout, TimeUnit.MILLISECONDS)
+				.thenAccept(t -> {
+					if (!tasks.stream().allMatch(CompletableFuture::isDone)) {
+						System.out.println("Not all router admins updated their cache");
+					}
+				})
+				.join();
 		System.out.printf("Mount table entries cache refresh successCount=%d,failureCount=%d%n", successCount.get(), failureCount.get());
 	}
 
