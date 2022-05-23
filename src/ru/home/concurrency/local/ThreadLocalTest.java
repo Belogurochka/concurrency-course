@@ -1,4 +1,4 @@
-package ru.home.concurrency;
+package ru.home.concurrency.local;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;

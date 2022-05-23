@@ -1,4 +1,4 @@
-package ru.home.concurrency;
+package ru.home.concurrency.local;
 
 public class Task implements Runnable {
 	private static final ThreadLocal<Integer> value = ThreadLocal.withInitial(() -> 0);
