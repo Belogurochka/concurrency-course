@@ -1,7 +1,8 @@
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
-import ru.home.concurrency.auction.task1.AuctionOptimistic;
+import ru.home.concurrency.collections.CountDownThread;
+import ru.home.concurrency.collections.RestaurantSearchService;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -11,20 +12,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class AuctionTest {
+public class CollectionsTest {
 
 	@Test
-	public void auctionTest() {
+	public void RestaurantServiceTest() {
 		CountDownLatch countDownLatch = new CountDownLatch(1);
-		AuctionOptimistic auction = new AuctionOptimistic();
+		RestaurantSearchService searchService = new RestaurantSearchService();
 
-		long maxPrice = 100500;
+		List<String> restaurantsNames = List.of("Burger King", "Marcellis", "MacDonald's", "Osteria Mario", "KFC", "Wine&Crab");
 
 		List<CompletableFuture<Void>> futures = IntStream.rangeClosed(1, 500)
 				.boxed()
 				.map(i -> CompletableFuture.runAsync(() -> {
-					long price = (i.equals(450)) ? maxPrice : ThreadLocalRandom.current().nextLong(1, 10000);
-					proposeAuction(countDownLatch, i, auction, price);
+					int restIdx = ThreadLocalRandom.current().nextInt(0, restaurantsNames.size() - 1);
+					new CountDownThread(() -> searchService.getByName(restaurantsNames.get(restIdx)), String.format("thread-%1d", i), countDownLatch).start();
 				}))
 				.collect(Collectors.toList());
 
@@ -39,18 +40,8 @@ public class AuctionTest {
 				})
 				.join();
 
-
-		AuctionOptimistic.Bid latestBid = auction.getLatestBid();
-		Assertions.assertEquals(maxPrice, latestBid.getPrice(), String.format("Latest bid price is not matches = %d", latestBid.getPrice()));
-	}
-
-	private void proposeAuction(CountDownLatch countDownLatch, int i, AuctionOptimistic auction, long price) {
-		try {
-			AuctionOptimistic.Bid bid = new AuctionOptimistic.Bid((long) i, price);
-			countDownLatch.await();
-			auction.propose(bid);
-		} catch (InterruptedException ex) {
-			throw new AssertionFailedError(String.format("Thread with name = %s was interrupted", Thread.currentThread().getName()));
-		}
+		Assertions.assertNotNull(searchService.printStat());
+		Assertions.assertTrue(searchService.printStat().size() > 0);
+		Assertions.assertTrue(searchService.getTotalCalls() > 0);
 	}
 }

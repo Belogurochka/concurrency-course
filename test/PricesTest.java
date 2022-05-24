@@ -3,7 +3,12 @@ import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 import ru.home.concurrency.prices.PriceMin;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class PricesTest {
 
@@ -12,17 +17,28 @@ public class PricesTest {
 		CountDownLatch countDownLatch = new CountDownLatch(1);
 		PriceMin.PriceAggregator priceAggregator = new PriceMin.PriceAggregator();
 
-		for (int i = 0; i < 500; i++) {
-			new Thread(() -> getMinPrice(countDownLatch, priceAggregator)).start();
-		}
+		List<CompletableFuture<Void>> futures = IntStream.rangeClosed(1, 500)
+				.boxed()
+				.map(i -> CompletableFuture.runAsync(() -> getMinPrice(countDownLatch, priceAggregator)))
+				.collect(Collectors.toList());
+
 		countDownLatch.countDown();
+
+		CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+				.completeOnTimeout(null, 30, TimeUnit.SECONDS)
+				.thenAccept(t -> {
+					if (!futures.stream().allMatch(CompletableFuture::isDone)) {
+						throw new AssertionFailedError("Not all thread were completed");
+					}
+				})
+				.join();
 	}
 
 	private void getMinPrice(CountDownLatch countDownLatch, PriceMin.PriceAggregator priceAggregator) {
 		try {
+			long start = System.currentTimeMillis();
 			countDownLatch.await();
 
-			long start = System.currentTimeMillis();
 			Double min = priceAggregator.getMinPrice(12L);
 			long end = System.currentTimeMillis();
 

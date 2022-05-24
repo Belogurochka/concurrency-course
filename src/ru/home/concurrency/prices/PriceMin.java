@@ -11,20 +11,7 @@ import java.util.stream.Collectors;
 
 public class PriceMin {
 
-	public static void main(String[] args) {
-		PriceAggregator priceAggregator = new PriceAggregator();
-		long itemId = 12L;
-
-		long start = System.currentTimeMillis();
-		Double min = priceAggregator.getMinPrice(itemId);
-		long end = System.currentTimeMillis();
-
-		System.out.println(Double.isNaN(min) ? "No prices were fetched" : String.format("Min price = %f", min));
-		System.out.println((end - start) < 3000); // should be true
-	}
-
 	public static class PriceRetriever {
-
 		public double getPrice(long itemId, long shopId) {
 			// имитация долгого HTTP-запроса
 			int delay = ThreadLocalRandom.current().nextInt(10);

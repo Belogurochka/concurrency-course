@@ -22,13 +22,6 @@ public class RestaurantSearchService {
 	}
 
 	private void addToStat(String restaurantName) {
-		//stat.computeIfAbsent(restaurantName, k->new AtomicInteger(0)).getAndIncrement();
-
-		/*Integer num = stat.putIfAbsent(restaurantName, 0);
-		if (num != null) {
-			stat.computeIfPresent(restaurantName, (name, nm) -> nm++);
-		}*/
-
 		stat.merge(restaurantName, 1, (oldNum, newNum) -> {
 			oldNum = oldNum + newNum;
 			return oldNum;
